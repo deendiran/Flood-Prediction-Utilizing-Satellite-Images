@@ -27,17 +27,17 @@ Google Colab: For computational tasks and dataset processing.
 
 ### Techniques
 
-** Image Processing: **
+**Image Processing:**
 
 Resizing and normalization of satellite images.
 Combining multiple bands for analysis.
 
-** Geospatial Analysis (GIS): **
+**Geospatial Analysis (GIS):**
 
 Mapping geolocated data.
 Analyzing vegetation and water body proximity.
 
-** Machine Learning: **
+**Machine Learning:**
 
 Training models to detect flooding based on satellite imagery and geospatial features.
 
