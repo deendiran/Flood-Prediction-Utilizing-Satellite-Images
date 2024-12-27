@@ -23,25 +23,22 @@ Link for the dataset: <br>
 ## Methods and Technologies
 ### Tools
 
-Google Colab: For computational tasks and dataset processing.
+**1. Google Colab:** For computational tasks and dataset processing.
 
 ### Techniques
 
-**Image Processing:**
+**1. Image Processing:**
+- Resizing and normalization of satellite images.
+- Combining multiple bands for analysis.
 
-Resizing and normalization of satellite images.
-Combining multiple bands for analysis.
+**2. Geospatial Analysis (GIS):**
+- Mapping geolocated data.
+- Analyzing vegetation and water body proximity.
 
-**Geospatial Analysis (GIS):**
+**3. Machine Learning:**
+- Training models to detect flooding based on satellite imagery and geospatial features.
 
-Mapping geolocated data.
-Analyzing vegetation and water body proximity.
-
-**Machine Learning:**
-
-Training models to detect flooding based on satellite imagery and geospatial features.
-
-#### Area of Study
+## Area of Study
 
 The primary area of study for this project is Kenya, focusing on flood-prone areas near rivers, lakes, and seas.
 
