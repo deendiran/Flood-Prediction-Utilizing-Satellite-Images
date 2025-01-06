@@ -1,0 +1,78 @@
+2025-01-06 16:45:58,327 - __main__ - INFO - Database initialized successfully
+2025-01-06 16:45:58,350 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.100.45:5000
+2025-01-06 16:45:58,351 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-01-06 16:46:20,369 - werkzeug - INFO - 127.0.0.1 - - [06/Jan/2025 16:46:20] "OPTIONS /api/analyze HTTP/1.1" 200 -
+2025-01-06 16:46:20,724 - __main__ - ERROR - Database operation failed: column reference "ndvi" is ambiguous
+LINE 2:         SELECT date, ndvi, soil_moisture, water_level
+                             ^
+
+2025-01-06 16:46:20,725 - __main__ - ERROR - Analysis failed: column reference "ndvi" is ambiguous
+LINE 2:         SELECT date, ndvi, soil_moisture, water_level
+                             ^
+
+2025-01-06 16:46:20,726 - werkzeug - INFO - 127.0.0.1 - - [06/Jan/2025 16:46:20] "[35m[1mPOST /api/analyze HTTP/1.1[0m" 500 -
+2025-01-06 16:46:23,326 - __main__ - ERROR - Database operation failed: column reference "ndvi" is ambiguous
+LINE 2:         SELECT date, ndvi, soil_moisture, water_level
+                             ^
+
+2025-01-06 16:46:23,326 - __main__ - ERROR - Analysis failed: column reference "ndvi" is ambiguous
+LINE 2:         SELECT date, ndvi, soil_moisture, water_level
+                             ^
+
+2025-01-06 16:46:23,327 - werkzeug - INFO - 127.0.0.1 - - [06/Jan/2025 16:46:23] "[35m[1mPOST /api/analyze HTTP/1.1[0m" 500 -
+2025-01-06 16:46:37,760 - werkzeug - INFO - 127.0.0.1 - - [06/Jan/2025 16:46:37] "OPTIONS /api/analyze HTTP/1.1" 200 -
+2025-01-06 16:46:38,117 - __main__ - ERROR - Database operation failed: column reference "ndvi" is ambiguous
+LINE 2:         SELECT date, ndvi, soil_moisture, water_level
+                             ^
+
+2025-01-06 16:46:38,117 - __main__ - ERROR - Analysis failed: column reference "ndvi" is ambiguous
+LINE 2:         SELECT date, ndvi, soil_moisture, water_level
+                             ^
+
+2025-01-06 16:46:38,119 - werkzeug - INFO - 127.0.0.1 - - [06/Jan/2025 16:46:38] "[35m[1mPOST /api/analyze HTTP/1.1[0m" 500 -
+2025-01-06 16:46:38,488 - __main__ - ERROR - Database operation failed: column reference "ndvi" is ambiguous
+LINE 2:         SELECT date, ndvi, soil_moisture, water_level
+                             ^
+
+2025-01-06 16:46:38,488 - __main__ - ERROR - Analysis failed: column reference "ndvi" is ambiguous
+LINE 2:         SELECT date, ndvi, soil_moisture, water_level
+                             ^
+
+2025-01-06 16:46:38,489 - werkzeug - INFO - 127.0.0.1 - - [06/Jan/2025 16:46:38] "[35m[1mPOST /api/analyze HTTP/1.1[0m" 500 -
+2025-01-06 16:46:40,655 - __main__ - ERROR - Database operation failed: column reference "ndvi" is ambiguous
+LINE 2:         SELECT date, ndvi, soil_moisture, water_level
+                             ^
+
+2025-01-06 16:46:40,656 - __main__ - ERROR - Analysis failed: column reference "ndvi" is ambiguous
+LINE 2:         SELECT date, ndvi, soil_moisture, water_level
+                             ^
+
+2025-01-06 16:46:40,656 - werkzeug - INFO - 127.0.0.1 - - [06/Jan/2025 16:46:40] "[35m[1mPOST /api/analyze HTTP/1.1[0m" 500 -
+2025-01-06 16:47:36,651 - werkzeug - INFO - 127.0.0.1 - - [06/Jan/2025 16:47:36] "OPTIONS /api/analyze HTTP/1.1" 200 -
+2025-01-06 16:47:37,062 - __main__ - ERROR - Database operation failed: column reference "ndvi" is ambiguous
+LINE 2:         SELECT date, ndvi, soil_moisture, water_level
+                             ^
+
+2025-01-06 16:47:37,062 - __main__ - ERROR - Analysis failed: column reference "ndvi" is ambiguous
+LINE 2:         SELECT date, ndvi, soil_moisture, water_level
+                             ^
+
+2025-01-06 16:47:37,064 - werkzeug - INFO - 127.0.0.1 - - [06/Jan/2025 16:47:37] "[35m[1mPOST /api/analyze HTTP/1.1[0m" 500 -
+2025-01-06 16:47:37,853 - __main__ - ERROR - Database operation failed: column reference "ndvi" is ambiguous
+LINE 2:         SELECT date, ndvi, soil_moisture, water_level
+                             ^
+
+2025-01-06 16:47:37,853 - __main__ - ERROR - Analysis failed: column reference "ndvi" is ambiguous
+LINE 2:         SELECT date, ndvi, soil_moisture, water_level
+                             ^
+
+2025-01-06 16:47:37,853 - werkzeug - INFO - 127.0.0.1 - - [06/Jan/2025 16:47:37] "[35m[1mPOST /api/analyze HTTP/1.1[0m" 500 -
+2025-01-06 16:48:33,008 - __main__ - INFO - Database initialized successfully
+2025-01-06 16:48:33,026 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.100.45:5000
+2025-01-06 16:48:33,026 - werkzeug - INFO - [33mPress CTRL+C to quit[0m

@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Flood Prediction System</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .analysis-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        #map {
+            height: 500px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .analysis-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .metrics-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .metric-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .historical-charts {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .chart-container {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            height: 300px;
+        }
+
+        .risk-indicator {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 4px;
+            color: white;
+            font-weight: bold;
+        }
+
+        .risk-high { background: #dc3545; }
+        .risk-medium { background: #ffc107; color: black; }
+        .risk-low { background: #28a745; }
+
+        .satellite-comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .satellite-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+
+        .image-label {
+            text-align: center;
+            margin-top: 5px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Flood Prediction System</h1>
+        <p>Click on the map or allow location access to analyze flood risk in your area.</p>
+
+        <div class="analysis-grid">
+            <div id="map"></div>
+            <div class="analysis-panel" id="analysisPanel">
+                <h2>Analysis Results</h2>
+                <div id="locationInfo"></div>
+                <div class="metrics-container">
+                    <div class="metric-card" id="vegetationMetric">
+                        <h3>Vegetation Density</h3>
+                        <div id="ndviValue"></div>
+                    </div>
+                    <div class="metric-card" id="soilMetric">
+                        <h3>Soil Moisture</h3>
+                        <div id="soilValue"></div>
+                    </div>
+                    <div class="metric-card" id="waterMetric">
+                        <h3>Water Level</h3>
+                        <div id="waterValue"></div>
+                    </div>
+                </div>
+                <div class="satellite-comparison">
+                    <div>
+                        <img id="ndviImage" class="satellite-image" alt="NDVI Analysis">
+                        <div class="image-label">NDVI Analysis</div>
+                    </div>
+                    <div>
+                        <img id="ndwiImage" class="satellite-image" alt="NDWI Analysis">
+                        <div class="image-label">NDWI Analysis</div>
+                    </div>
+                </div>
+                <div class="historical-charts">
+                    <div class="chart-container">
+                        <canvas id="historicalChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        let map;
+        let selectedArea;
+        let historicalChart;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeMap();
+            setupHistoricalChart();
+        });
+
+        function initializeMap() {
+            map = L.map('map').setView([0.0236, 37.9062], 8);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+            map.on('click', handleLocationSelect);
+
+            if ("geolocation" in navigator) {
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    const userLocation = [position.coords.latitude, position.coords.longitude];
+                    map.setView(userLocation, 12);
+                    handleLocationSelect({ latlng: { lat: userLocation[0], lng: userLocation[1] } });
+                });
+            }
+        }
+
+        function setupHistoricalChart() {
+            const ctx = document.getElementById('historicalChart').getContext('2d');
+            historicalChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'NDVI',
+                            borderColor: 'rgb(75, 192, 192)',
+                            data: []
+                        },
+                        {
+                            label: 'Soil Moisture',
+                            borderColor: 'rgb(153, 102, 255)',
+                            data: []
+                        },
+                        {
+                            label: 'Water Level',
+                            borderColor: 'rgb(54, 162, 235)',
+                            data: []
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+
+        function handleLocationSelect(e) {
+            if (selectedArea) {
+                map.removeLayer(selectedArea);
+            }
+
+            selectedArea = L.circle(e.latlng, {
+                radius: 2000,
+                color: 'red',
+                fillColor: '#f03',
+                fillOpacity: 0.3
+            }).addTo(map);
+
+            fetchAnalysisData(e.latlng);
+        }
+
+        async function fetchAnalysisData(latlng) {
+            try {
+                const response = await fetch('http://localhost:5000/api/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        lat: latlng.lat,
+                        lng: latlng.lng
+                    })
+                });
+
+                const data = await response.json();
+                updateAnalysisDisplay(data);
+                updateHistoricalChart(data.historical_data);
+                updateSatelliteImages(data.satellite_images);
+            } catch (error) {
+                console.error('Error fetching analysis:', error);
+            }
+        }
+
+        function updateAnalysisDisplay(data) {
+            document.getElementById('locationInfo').innerHTML = `
+                <h3>Location: ${data.location}</h3>
+                <p>Coordinates: ${data.coordinates}</p>
+                <p>Flood Risk: <span class="risk-indicator risk-${data.risk_level.toLowerCase()}">${data.risk_level}</span></p>
+                <p>Prediction Confidence: ${data.confidence}%</p>
+            `;
+
+            document.getElementById('ndviValue').innerHTML = `
+                <p>Current: ${data.vegetation.ndvi}</p>
+                <p>Trend: ${data.vegetation.trend}</p>
+            `;
+
+            document.getElementById('soilValue').innerHTML = `
+                <p>Current: ${data.soil_moisture.value}%</p>
+                <p>Saturation: ${data.soil_moisture.saturation}</p>
+            `;
+
+            document.getElementById('waterValue').innerHTML = `
+                <p>Current: ${data.water_level.value}m</p>
+                <p>Change: ${data.water_level.change}</p>
+            `;
+        }
+
+        function updateHistoricalChart(historicalData) {
+            historicalChart.data.labels = historicalData.dates;
+            historicalChart.data.datasets[0].data = historicalData.ndvi;
+            historicalChart.data.datasets[1].data = historicalData.soil_moisture;
+            historicalChart.data.datasets[2].data = historicalData.water_level;
+            historicalChart.update();
+        }
+
+        function updateSatelliteImages(images) {
+            document.getElementById('ndviImage').src = images.ndvi;
+            document.getElementById('ndwiImage').src = images.ndwi;
+        }
+    </script>
+</body>
+</html>
