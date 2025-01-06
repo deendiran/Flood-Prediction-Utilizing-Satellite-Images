@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flood Prediction System</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .map-container {
+            display: flex;
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        #map {
+            height: 600px;
+            flex: 2;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        #historical-view {
+            height: 600px;
+            flex: 1;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            background: white;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .prediction-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-top: 20px;
+        }
+
+        .risk-indicator {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 4px;
+            color: white;
+            font-weight: bold;
+        }
+
+        .risk-high { background: #dc3545; }
+        .risk-medium { background: #ffc107; color: black; }
+        .risk-low { background: #28a745; }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+            line-height: 1.5;
+        }
+
+        .historical-image {
+            width: 100%;
+            margin-bottom: 15px;
+            border-radius: 4px;
+        }
+
+        .historical-date {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        .layer-control {
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+
+        .layer-control label {
+            margin-left: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Flood Prediction System</h1>
+            <p>Click anywhere on the map to analyze flood risk for that location. The system shows both current analysis and historical data from the past 10 days.</p>
+        </div>
+
+        <div class="map-container">
+            <div id="map"></div>
+            <div id="historical-view">
+                <h2>Historical View</h2>
+                <p>10-day historical analysis will appear here when you select a location.</p>
+            </div>
+        </div>
+        
+        <div class="prediction-panel">
+            <h2>Flood Prediction Results</h2>
+            <div id="locationInfo"></div>
+            <div id="predictionResults"></div>
+            <div class="loading" id="loadingIndicator">
+                Analyzing area...
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script>
+        let map;
+        let selectedArea;
+        let mapLayers = {};
+
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeMap();
+        });
+
+        function initializeMap() {
+            // Initialize map centered on Kenya with higher zoom level
+            map = L.map('map').setView([0.0236, 37.9062], 8);
+
+            // Add multiple base layers for more detail
+            mapLayers.streets = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            });
+
+            mapLayers.satellite = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+                attribution: '© Google',
+                maxZoom: 20
+            });
+
+            mapLayers.terrain = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenTopoMap contributors'
+            });
+
+            // Add water bodies layer (rivers and lakes)
+            mapLayers.waterBodies = L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            });
+
+            // Set default layer
+            mapLayers.streets.addTo(map);
+
+            // Add layer control
+            L.control.layers({
+                'Street Map': mapLayers.streets,
+                'Satellite': mapLayers.satellite,
+                'Terrain': mapLayers.terrain
+            }, {
+                'Water Bodies': mapLayers.waterBodies
+            }).addTo(map);
+
+            // Add scale control
+            L.control.scale().addTo(map);
+
+            map.on('click', function(e) {
+                if (selectedArea) {
+                    map.removeLayer(selectedArea);
+                }
+                
+                selectedArea = L.circle(e.latlng, {
+                    radius: 5000,
+                    color: 'red',
+                    fillColor: '#f03',
+                    fillOpacity: 0.3
+                }).addTo(map);
+
+                mockAnalyzePrediction(e.latlng);
+                showHistoricalData(e.latlng);
+            });
+
+            if ("geolocation" in navigator) {
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    map.setView([position.coords.latitude, position.coords.longitude], 10);
+                });
+            }
+        }
+
+        function mockAnalyzePrediction(latlng) {
+            document.getElementById('loadingIndicator').style.display = 'block';
+            document.getElementById('predictionResults').innerHTML = '';
+
+            // Simulate API delay
+            setTimeout(() => {
+                // Mock data with specific water body detection
+                const mockData = {
+                    risk: ['low', 'medium', 'high'][Math.floor(Math.random() * 3)],
+                    confidence: Math.floor(Math.random() * 20) + 75,
+                    waterBody: detectWaterBody(latlng),
+                    location: `Location at ${latlng.lat.toFixed(4)}, ${latlng.lng.toFixed(4)}`,
+                    timestamp: new Date().toISOString()
+                };
+
+                document.getElementById('loadingIndicator').style.display = 'none';
+                displayPredictionResults(mockData);
+            }, 1500);
+        }
+
+        function detectWaterBody(latlng) {
+            // Mock water body detection based on coordinates
+            // In real implementation, this would use GEE or other spatial data
+            const waterBodies = {
+                'Lake Victoria': {
+                    bounds: [-1.5, 32, -0.5, 34],
+                    name: 'Lake Victoria'
+                },
+                'Lake Nakuru': {
+                    bounds: [-0.4, 36.0, -0.2, 36.2],
+                    name: 'Lake Nakuru'
+                },
+                'Tana River': {
+                    bounds: [-2, 39, 0, 40],
+                    name: 'Tana River'
+                }
+            };
+
+            for (let body in waterBodies) {
+                const b = waterBodies[body].bounds;
+                if (latlng.lat >= b[0] && latlng.lat <= b[2] && 
+                    latlng.lng >= b[1] && latlng.lng <= b[3]) {
+                    return waterBodies[body].name;
+                }
+            }
+
+            return 'No major water body detected';
+        }
+
+        function showHistoricalData(latlng) {
+            const historicalView = document.getElementById('historical-view');
+            historicalView.innerHTML = '<h2>Historical View (Past 10 Days)</h2>';
+
+            // Generate mock historical data
+            const today = new Date();
+            for (let i = 9; i >= 0; i--) {
+                const date = new Date(today);
+                date.setDate(date.getDate() - i);
+                
+                const mockChange = Math.random() * 20 - 10; // Random change between -10 and +10
+                const waterLevel = Math.random() * 100;
+
+                const entry = document.createElement('div');
+                entry.innerHTML = `
+                    <div class="historical-date">${date.toLocaleDateString()}</div>
+                    <p>Water Level: ${waterLevel.toFixed(1)}m</p>
+                    <p>Change: ${mockChange > 0 ? '+' : ''}${mockChange.toFixed(1)}%</p>
+                    <hr>
+                `;
+                historicalView.appendChild(entry);
+            }
+        }
+
+        function displayPredictionResults(data) {
+            const resultsDiv = document.getElementById('predictionResults');
+            const riskClass = data.risk === 'high' ? 'risk-high' : 
+                            data.risk === 'medium' ? 'risk-medium' : 'risk-low';
+
+            resultsDiv.innerHTML = `
+                <h3>Analysis Results</h3>
+                <p>Location: ${data.location}</p>
+                <p>Detected Water Body: ${data.waterBody}</p>
+                <p>Flood Risk: <span class="risk-indicator ${riskClass}">${data.risk.toUpperCase()}</span></p>
+                <p>Prediction Confidence: ${data.confidence}%</p>
+                <p>Last Updated: ${new Date(data.timestamp).toLocaleString()}</p>
+            `;
+        }
+    </script>
+</body>
+</html>
