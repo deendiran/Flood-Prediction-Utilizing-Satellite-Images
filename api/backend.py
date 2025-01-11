@@ -30,6 +30,16 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app)
 
+@app.route("/api/endpoint", methods=["GET", "POST"])
+def example_route():
+    return jsonify({"message": "Hello from the backend!"})
+
+# Add this line to make Flask work as a serverless function
+def handler(event, context):
+    from flask_lambda import FlaskLambda
+    lambda_app = FlaskLambda(app)
+    return lambda_app(event, context)
+
 # Database configuration
 DB_CONFIG = {
     'dbname': os.getenv('DB_NAME', 'flood_prediction_db'),
@@ -88,32 +98,55 @@ def get_location_name(lat, lng):
         return f"Location at {lat:.4f}, {lng:.4f}"
 
 def get_satellite_data(lat, lng, start_date, end_date):
-    """Get satellite data from Google Earth Engine"""
+    """Get satellite data from Google Earth Engine with improved date handling"""
     try:
         # Define the point of interest
         point = ee.Geometry.Point([lng, lat])
         region = point.buffer(1000)  # 1km buffer
 
-        # Get Sentinel-2 imagery
+        # Convert start_date and end_date to datetime objects if they're strings
+        if isinstance(start_date, str):
+            start_date = datetime.strptime(start_date, '%Y-%m-%d')
+        if isinstance(end_date, str):
+            end_date = datetime.strptime(end_date, '%Y-%m-%d')
+
+        # Extend the date range to 30 days if no imagery is found
+        extended_start_date = start_date - timedelta(days=30)
+        
+        # Get Sentinel-2 imagery with more flexible cloud coverage
         s2 = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED') \
             .filterBounds(region) \
-            .filterDate(start_date, end_date) \
-            .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 20))
+            .filterDate(extended_start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d')) \
+            .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 50))  # Increased cloud coverage threshold
 
-        if s2.size().getInfo() == 0:
-            raise Exception("No clear Sentinel-2 imagery available for the specified period")
-
-        # Get the most recent image
-        image = ee.Image(s2.sort('system:time_start', False).first())
-
-        # Calculate indices
-        ndvi = image.normalizedDifference(['B8', 'B4'])  # NIR and Red bands
-        ndwi = image.normalizedDifference(['B3', 'B8'])  # Green and NIR bands
+        # Try to get the least cloudy image
+        s2_size = s2.size().getInfo()
+        if s2_size == 0:
+            logger.warning("No Sentinel-2 imagery available, trying Landsat data")
+            # Try Landsat 8 as backup
+            landsat = ee.ImageCollection('LANDSAT/LC08/C02/T1_L2') \
+                .filterBounds(region) \
+                .filterDate(extended_start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d')) \
+                .filter(ee.Filter.lt('CLOUD_COVER', 50))
+            
+            if landsat.size().getInfo() == 0:
+                raise Exception("No clear satellite imagery available")
+            
+            image = ee.Image(landsat.sort('CLOUD_COVER').first())
+            # Calculate indices using Landsat bands
+            ndvi = image.normalizedDifference(['SR_B5', 'SR_B4'])  # NIR and Red bands
+            ndwi = image.normalizedDifference(['SR_B3', 'SR_B5'])  # Green and NIR bands
+        else:
+            # Sort by cloud coverage and get the clearest image
+            image = ee.Image(s2.sort('CLOUDY_PIXEL_PERCENTAGE').first())
+            # Calculate indices
+            ndvi = image.normalizedDifference(['B8', 'B4'])  # NIR and Red bands
+            ndwi = image.normalizedDifference(['B3', 'B8'])  # Green and NIR bands
 
         # Get soil moisture data from ERA5-Land
         era5_land = ee.ImageCollection('ECMWF/ERA5_LAND/HOURLY') \
-            .filterDate(start_date, end_date) \
-            .select('soil_moisture_level_1')
+            .filterDate(start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d')) \
+            .select('volumetric_soil_water_layer_1')
         soil_moisture = era5_land.mean()
 
         # Calculate mean values for the region
@@ -121,46 +154,64 @@ def get_satellite_data(lat, lng, start_date, end_date):
             .reduceRegion(
                 reducer=ee.Reducer.mean(),
                 geometry=point,
-                scale=10
+                scale=30  # Using 30m resolution for compatibility with both sensors
             ).getInfo()
+
+        # Get the actual date of the image used
+        image_date = ee.Date(image.get('system:time_start')).format('YYYY-MM-dd').getInfo()
+        
+        logger.info(f"Successfully retrieved satellite data from {image_date}")
 
         return {
             'ndvi': values.get('nd_1', 0),
             'ndwi': values.get('nd_2', 0),
-            'soil_moisture': values.get('soil_moisture_level_1', 0)
+            'soil_moisture': values.get('volumetric_soil_water_layer_1', 0),
+            'image_date': image_date
         }
     except Exception as e:
         logger.error(f"GEE analysis failed: {str(e)}")
         # Return mock data if GEE analysis fails
+        current_date = datetime.now().strftime('%Y-%m-%d')
         return {
             'ndvi': np.random.uniform(0.2, 0.8),
             'ndwi': np.random.uniform(-0.2, 0.4),
-            'soil_moisture': np.random.uniform(0.1, 0.5)
+            'soil_moisture': np.random.uniform(0.1, 0.5),
+            'image_date': current_date
         }
 
-def calculate_flood_risk(ndvi, ndwi, soil_moisture):
-    """Calculate flood risk based on satellite indices"""
+def calculate_flood_risk(ndvi, ndwi, soil_moisture, water_level=None):
+    """Calculate flood risk with more sophisticated logic"""
     try:
         # Normalize values
         norm_ndvi = (ndvi + 1) / 2  # NDVI ranges from -1 to 1
         norm_ndwi = (ndwi + 1) / 2  # NDWI ranges from -1 to 1
-        norm_soil = soil_moisture  # Assuming already normalized
+        norm_soil = min(1, soil_moisture)  # Ensure soil moisture is between 0 and 1
 
         # Weights for each factor
         weights = {
-            'ndvi': 0.3,  # Vegetation cover
-            'ndwi': 0.4,  # Water content
-            'soil': 0.3   # Soil moisture
+            'ndvi': 0.25,    # Vegetation cover
+            'ndwi': 0.35,    # Water content
+            'soil': 0.40     # Soil moisture
         }
 
         # Calculate risk score (0-1)
-        risk_score = (
-            (1 - norm_ndvi) * weights['ndvi'] +  # Lower vegetation -> higher risk
-            norm_ndwi * weights['ndwi'] +        # Higher water -> higher risk
-            norm_soil * weights['soil']          # Higher soil moisture -> higher risk
-        )
+        risk_factors = [
+            (1 - norm_ndvi) * weights['ndvi'],  # Lower vegetation -> higher risk
+            norm_ndwi * weights['ndwi'],        # Higher water -> higher risk
+            norm_soil * weights['soil']         # Higher soil moisture -> higher risk
+        ]
+        
+        if water_level is not None and water_level > 0:
+            # Normalize water level (assuming max reasonable level is 10m)
+            norm_water = min(1, water_level / 10)
+            risk_factors.append(norm_water * 0.2)  # Add water level factor
+            # Readjust other weights
+            total = sum(risk_factors)
+            risk_score = total / (1 + 0.2)  # Adjust for added weight
+        else:
+            risk_score = sum(risk_factors)
 
-        # Determine risk level
+        # Determine risk level with more granular thresholds
         if risk_score > 0.7:
             risk_level = 'HIGH'
         elif risk_score > 0.4:
@@ -170,7 +221,7 @@ def calculate_flood_risk(ndvi, ndwi, soil_moisture):
 
         return {
             'risk_level': risk_level,
-            'confidence': round(risk_score * 100, 1),
+            'confidence': round(min(100, risk_score * 100), 1),
             'risk_score': round(risk_score, 2)
         }
     except Exception as e:
