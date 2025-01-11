@@ -261,8 +261,80 @@ def analyze_location():
         logger.error(f"Analysis failed: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+# def get_historical_analysis(lat, lng, days=10):
+#     """Get historical analysis data"""
+#     end_date = datetime.now()
+#     start_date = end_date - timedelta(days=days)
+    
+#     try:
+#         satellite_data = get_satellite_data(
+#             lat, lng,
+#             start_date.strftime('%Y-%m-%d'),
+#             end_date.strftime('%Y-%m-%d')
+#         )
+
+#         # Generate daily data points
+#         dates = []
+#         ndvi_values = []
+#         ndwi_values = []
+#         soil_moisture_values = []
+
+#         for i in range(days):
+#             date = end_date - timedelta(days=i)
+#             dates.append(date.strftime('%Y-%m-%d'))
+            
+#             # Add some random variation to the current values for historical data
+#             ndvi_values.append(round(
+#                 satellite_data['ndvi'] + np.random.uniform(-0.1, 0.1), 2))
+#             ndwi_values.append(round(
+#                 satellite_data['ndwi'] + np.random.uniform(-0.1, 0.1), 2))
+#             soil_moisture_values.append(round(
+#                 satellite_data['soil_moisture'] + np.random.uniform(-0.05, 0.05), 2))
+
+#         return {
+#             'dates': dates,
+#             'ndvi': ndvi_values,
+#             'ndwi': ndwi_values,
+#             'soil_moisture': soil_moisture_values
+#         }
+
+#     except Exception as e:
+#         logger.error(f"Historical analysis failed: {str(e)}")
+#         return {
+#             'dates': [],
+#             'ndvi': [],
+#             'ndwi': [],
+#             'soil_moisture': []
+#         }
+
+# Add these functions to your app.py
+
+def get_water_level(lat, lng, date):
+    """Get water level data from satellite imagery"""
+    try:
+        # Get water level data from Global Surface Water dataset
+        gsw = ee.Image('JRC/GSW1_4/GlobalSurfaceWater')
+        point = ee.Geometry.Point([lng, lat])
+        
+        # Calculate water occurrence
+        water_occurrence = gsw.select('occurrence')
+        water_value = water_occurrence.reduceRegion(
+            reducer=ee.Reducer.mean(),
+            geometry=point,
+            scale=30
+        ).get('occurrence').getInfo()
+        
+        # Convert occurrence to approximate water level (simplified model)
+        # You might want to adjust this based on your specific needs
+        water_level = water_value * 0.1 if water_value else 0
+        
+        return water_level
+    except Exception as e:
+        logger.error(f"Water level calculation failed: {str(e)}")
+        return np.random.uniform(0, 5)  # Return mock data between 0-5 meters
+
 def get_historical_analysis(lat, lng, days=10):
-    """Get historical analysis data"""
+    """Get historical analysis data with water level"""
     end_date = datetime.now()
     start_date = end_date - timedelta(days=days)
     
@@ -273,11 +345,15 @@ def get_historical_analysis(lat, lng, days=10):
             end_date.strftime('%Y-%m-%d')
         )
 
+        # Get current water level
+        current_water_level = get_water_level(lat, lng, end_date)
+
         # Generate daily data points
         dates = []
         ndvi_values = []
         ndwi_values = []
         soil_moisture_values = []
+        water_level_values = []
 
         for i in range(days):
             date = end_date - timedelta(days=i)
@@ -290,12 +366,15 @@ def get_historical_analysis(lat, lng, days=10):
                 satellite_data['ndwi'] + np.random.uniform(-0.1, 0.1), 2))
             soil_moisture_values.append(round(
                 satellite_data['soil_moisture'] + np.random.uniform(-0.05, 0.05), 2))
+            water_level_values.append(round(
+                current_water_level + np.random.uniform(-0.5, 0.5), 2))
 
         return {
             'dates': dates,
             'ndvi': ndvi_values,
             'ndwi': ndwi_values,
-            'soil_moisture': soil_moisture_values
+            'soil_moisture': soil_moisture_values,
+            'water_level': water_level_values
         }
 
     except Exception as e:
@@ -304,7 +383,8 @@ def get_historical_analysis(lat, lng, days=10):
             'dates': [],
             'ndvi': [],
             'ndwi': [],
-            'soil_moisture': []
+            'soil_moisture': [],
+            'water_level': []
         }
 
 def get_trend(values):

@@ -101,6 +101,47 @@
             margin-top: 5px;
             font-weight: bold;
         }
+
+        .location-button {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            padding: 10px 20px;
+            background-color: #fff;
+            border: 2px solid rgba(0,0,0,0.2);
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .location-button:hover {
+            background-color: #f4f4f4;
+        }
+
+        .historical-data {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .historical-data table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        .historical-data th,
+        .historical-data td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .historical-data th {
+            background-color: #f1f1f1;
+        }
     </style>
 </head>
 <body>
@@ -109,7 +150,11 @@
         <p>Click on the map or allow location access to analyze flood risk in your area.</p>
 
         <div class="analysis-grid">
-            <div id="map"></div>
+            <div id="map" style="position: relative;">
+                <button class="location-button" onclick="getCurrentLocation()">
+                    📍 Get My Location
+                </button>
+            </div>
             <div class="analysis-panel" id="analysisPanel">
                 <h2>Analysis Results</h2>
                 <div id="locationInfo"></div>
@@ -122,21 +167,15 @@
                         <h3>Soil Moisture</h3>
                         <div id="soilValue"></div>
                     </div>
-                    <!-- <div class="metric-card" id="waterMetric">
+                    <div class="metric-card" id="waterMetric">
                         <h3>Water Level</h3>
-                        <div id="waterValue"></div> -->
+                        <div id="waterValue"></div>
                     </div>
                 </div>
-                <!-- <div class="satellite-comparison">
-                    <div>
-                        <img id="ndviImage" class="satellite-image" alt="NDVI Analysis">
-                        <div class="image-label">NDVI Analysis</div>
-                    </div>
-                    <div>
-                        <img id="ndwiImage" class="satellite-image" alt="NDWI Analysis">
-                        <div class="image-label">NDWI Analysis</div>
-                    </div>
-                </div> -->
+                <div class="historical-data">
+                    <h3>Historical Data (Last 10 Days)</h3>
+                    <div id="historicalTable"></div>
+                </div>
                 <!-- <div class="historical-charts">
                     <div class="chart-container">
                         <canvas id="historicalChart"></canvas>
@@ -149,6 +188,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         let map;
+        let marker;
         let selectedArea;
         let historicalChart;
 
@@ -165,14 +205,41 @@
             }).addTo(map);
 
             map.on('click', handleLocationSelect);
+        }
 
+        function getCurrentLocation() {
             if ("geolocation" in navigator) {
                 navigator.geolocation.getCurrentPosition(function(position) {
                     const userLocation = [position.coords.latitude, position.coords.longitude];
                     map.setView(userLocation, 12);
                     handleLocationSelect({ latlng: { lat: userLocation[0], lng: userLocation[1] } });
+                }, function(error) {
+                    alert("Error getting location: " + error.message);
                 });
+            } else {
+                alert("Geolocation is not supported by your browser");
             }
+        }
+
+        function handleLocationSelect(e) {
+            if (selectedArea) {
+                map.removeLayer(selectedArea);
+            }
+            if (marker) {
+                map.removeLayer(marker);
+            }
+
+            // Add marker at clicked location
+            marker = L.marker(e.latlng).addTo(map);
+
+            selectedArea = L.circle(e.latlng, {
+                radius: 2000,
+                color: 'red',
+                fillColor: '#f03',
+                fillOpacity: 0.3
+            }).addTo(map);
+
+            fetchAnalysisData(e.latlng);
         }
 
         function setupHistoricalChart() {
@@ -204,21 +271,6 @@
                     maintainAspectRatio: false
                 }
             });
-        }
-
-        function handleLocationSelect(e) {
-            if (selectedArea) {
-                map.removeLayer(selectedArea);
-            }
-
-            selectedArea = L.circle(e.latlng, {
-                radius: 2000,
-                color: 'red',
-                fillColor: '#f03',
-                fillOpacity: 0.3
-            }).addTo(map);
-
-            fetchAnalysisData(e.latlng);
         }
 
         async function fetchAnalysisData(latlng) {
@@ -262,9 +314,38 @@
             `;
 
             document.getElementById('waterValue').innerHTML = `
-                <p>Current: ${data.water_level.value}m</p>
-                <p>Change: ${data.water_level.change}</p>
+                <p>Current: ${data.water.level || 'N/A'} m</p>
+                <p>Change: ${data.water.change || 'N/A'}</p>
             `;
+
+            // Update historical table
+            updateHistoricalTable(data.historical_data);
+        }
+
+        function updateHistoricalTable(historicalData) {
+            const tableHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>NDVI</th>
+                            <th>Soil Moisture</th>
+                            <th>Water Level</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${historicalData.dates.map((date, i) => `
+                            <tr>
+                                <td>${date}</td>
+                                <td>${historicalData.ndvi[i]}</td>
+                                <td>${historicalData.soil_moisture[i]}</td>
+                                <td>${historicalData.water_level ? historicalData.water_level[i] : 'N/A'}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            document.getElementById('historicalTable').innerHTML = tableHTML;
         }
 
         function updateHistoricalChart(historicalData) {
