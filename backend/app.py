@@ -95,7 +95,7 @@ def get_satellite_data(lat, lng, start_date, end_date):
         region = point.buffer(1000)  # 1km buffer
 
         # Get Sentinel-2 imagery
-        s2 = ee.ImageCollection('COPERNICUS/S2_SR') \
+        s2 = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED') \
             .filterBounds(region) \
             .filterDate(start_date, end_date) \
             .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 20))
@@ -306,8 +306,6 @@ def analyze_location():
 #             'ndwi': [],
 #             'soil_moisture': []
 #         }
-
-# Add these functions to your app.py
 
 def get_water_level(lat, lng, date):
     """Get water level data from satellite imagery"""
