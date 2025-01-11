@@ -1,5 +1,4 @@
 # app.py
-import ee
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import psycopg2
@@ -12,6 +11,7 @@ import logging
 import geopy
 from geopy.geocoders import Nominatim
 import json
+import ee
 
 # Initialize Earth Engine
 try:
@@ -31,7 +31,7 @@ app = Flask(__name__)
 CORS(app)
 
 @app.route("/api/endpoint", methods=["GET", "POST"])
-def example_route():
+def home():
     return jsonify({"message": "Hello from the backend!"})
 
 # Add this line to make Flask work as a serverless function
